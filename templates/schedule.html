@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Расписание</title>
+</head>
+<body>
+    <h1>Расписание стирки</h1>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <ul>
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+    {% for day in days %}
+        <h2>{{ day }}</h2>
+        <table border="1">
+            <tr>
+                <th>Время</th>
+                {% for machine in machines %}
+                    <th>Машина {{ machine }}</th>
+                {% endfor %}
+            </tr>
+            {% for ts in time_slots %}
+                <tr>
+                    <td>{{ ts }}</td>
+                    {% for idx in range(machines|length) %}
+                        <td>
+                            {% if schedule_data[day][ts][idx] %}
+                                {{ schedule_data[day][ts][idx] }}
+                            {% else %}
+                                <form method="POST">
+                                    <input type="hidden" name="day" value="{{ day }}">
+                                    <input type="hidden" name="time_slot" value="{{ ts }}">
+                                    <input type="hidden" name="machine" value="{{ machines[idx] }}">
+                                    <input type="submit" value="Записаться">
+                                </form>
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </table>
+    {% endfor %}
+</body>
+</html>

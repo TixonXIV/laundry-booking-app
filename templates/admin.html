@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Админ панель</title>
+</head>
+<body>
+    <h1>Админ панель</h1>
+    <a href="{{ url_for('admin_logout') }}">Выйти</a>
+    <br>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <ul>
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Сброс таблицы -->
+    <form method="POST">
+        <input type="hidden" name="action" value="reset">
+        <input type="submit" value="Сбросить таблицу">
+    </form>
+    
+    <!-- Заводской сброс -->
+    <form method="POST">
+        <input type="hidden" name="action" value="factory_reset">
+        <input type="submit" value="Вернуть к заводским настройкам">
+    </form>
+    
+    <!-- Экспорт в Word -->
+    <form method="POST">
+        <input type="hidden" name="action" value="export_word">
+        <input type="submit" value="Экспорт в Word">
+    </form>
+    
+    <!-- Добавление/редактирование/удаление временных слотов -->
+    <h3>Управление временными слотами</h3>
+    <p>Добавление нового слота: Введите формат HH:MM-HH:MM, он добавится для всех дней и машин в конец списка.</p>
+    <form method="POST">
+        <input type="hidden" name="action" value="add_time">
+        <label>Новый слот:</label>
+        <input type="text" name="new_time">
+        <input type="submit" value="Добавить">
+    </form>
+    <form method="POST">
+        <input type="hidden" name="action" value="edit_time">
+        <label>Старый слот:</label>
+        <select name="old_time">
+            {% for ts in time_slots %}
+                <option value="{{ ts }}">{{ ts }}</option>
+            {% endfor %}
+        </select>
+        <label>Новый слот:</label>
+        <input type="text" name="new_time">
+        <input type="submit" value="Изменить">
+    </form>
+    <form method="POST">
+        <input type="hidden" name="action" value="remove_time">
+        <label>Удалить слот:</label>
+        <select name="remove_time">
+            {% for ts in time_slots %}
+                <option value="{{ ts }}">{{ ts }}</option>
+            {% endfor %}
+        </select>
+        <input type="submit" value="Удалить">
+    </form>
+    
+    <!-- Управление днями -->
+    <h3>Управление днями</h3>
+    <form method="POST">
+        <input type="hidden" name="action" value="add_day">
+        <label>Новый день:</label>
+        <input type="text" name="new_day">
+        <input type="submit" value="Добавить">
+    </form>
+    <form method="POST">
+        <input type="hidden" name="action" value="edit_day">
+        <label>Старый день:</label>
+        <select name="old_day">
+            {% for day in days %}
+                <option value="{{ day }}">{{ day }}</option>
+            {% endfor %}
+        </select>
+        <label>Новый день:</label>
+        <input type="text" name="new_day">
+        <input type="submit" value="Изменить">
+    </form>
+    <form method="POST">
+        <input type="hidden" name="action" value="remove_day">
+        <label>Удалить день:</label>
+        <select name="remove_day">
+            {% for day in days %}
+                <option value="{{ day }}">{{ day }}</option>
+            {% endfor %}
+        </select>
+        <input type="submit" value="Удалить">
+    </form>
+    
+    <!-- Управление машинами -->
+    <h3>Управление машинами</h3>
+    <form method="POST">
+        <input type="hidden" name="action" value="add_machine">
+        <input type="submit" value="Добавить новую машину">
+    </form>
+    {% for machine in machines %}
+        <form method="POST" style="display:inline;">
+            <input type="hidden" name="action" value="toggle_machine">
+            <input type="hidden" name="machine_num" value="{{ machine }}">
+            <input type="submit" value="Отключить/Включить машину {{ machine }}">
+        </form>
+        <form method="POST" style="display:inline;">
+            <input type="hidden" name="action" value="remove_machine">
+            <input type="hidden" name="remove_machine" value="{{ machine }}">
+            <input type="submit" value="Удалить машину {{ machine }}">
+        </form>
+    {% endfor %}
+    
+    <!-- Редактирование таблицы -->
+    {% for day in days %}
+        <h2>{{ day }}</h2>
+        <table border="1">
+            <tr>
+                <th>Время</th>
+                {% for machine in machines %}
+                    <th>Машина {{ machine }}</th>
+                {% endfor %}
+            </tr>
+            {% for ts in time_slots %}
+                <tr>
+                    <td>{{ ts }}</td>
+                    {% for idx in range(machines|length) %}
+                        <td>
+                            <form method="POST">
+                                <input type="hidden" name="action" value="edit">
+                                <input type="hidden" name="day" value="{{ day }}">
+                                <input type="hidden" name="time_slot" value="{{ ts }}">
+                                <input type="hidden" name="machine" value="{{ machines[idx] }}">
+                                <input type="text" name="new_value" value="{% if schedule_data[day][ts][idx] and schedule_data[day][ts][idx] != 'Отключена' %}{{ schedule_data[day][ts][idx] }}{% endif %}" placeholder="Фамилия Комната" {% if schedule_data[day][ts][idx] == 'Отключена' %}disabled{% endif %}>
+                                <input type="submit" value="Сохранить" {% if schedule_data[day][ts][idx] == 'Отключена' %}disabled{% endif %}>
+                            </form>
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </table>
+    {% endfor %}
+</body>
+</html>
