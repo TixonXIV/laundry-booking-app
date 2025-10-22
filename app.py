@@ -84,9 +84,9 @@ def get_slots(for_admin=False):
     conn = get_db_connection()
     c = conn.cursor()
     if for_admin:
-        c.execute('SELECT s.day_name, s.time_slot, s.machine_number, s.user_id, m.status FROM slots s LEFT JOIN machines m ON s.machine_number = m.number ORDER BY s.day_name, time_slot, s.machine_number')
+        c.execute('SELECT s.day_name, s.time_slot, s.machine_number, s.user_id, m.status FROM slots s LEFT JOIN machines m ON s.machine_number = m.number ORDER BY s.day_name, time_sort_key(s.time_slot), s.machine_number')
     else:
-        c.execute('SELECT s.day_name, s.time_slot, s.machine_number, s.user_id, m.status FROM slots s LEFT JOIN machines m ON s.machine_number = m.number WHERE m.status = "active" ORDER BY s.day_name, time_slot, s.machine_number')
+        c.execute('SELECT s.day_name, s.time_slot, s.machine_number, s.user_id, m.status FROM slots s LEFT JOIN machines m ON s.machine_number = m.number WHERE m.status = "active" ORDER BY s.day_name, time_sort_key(s.time_slot), s.machine_number')
     slots = c.fetchall()
     c.close()
     conn.close()
@@ -269,8 +269,6 @@ def admin():
             conn.commit()
             flash('Таблица возвращена к заводским настройкам.')
         
-        # ... (остальные actions как в вашем коде, с %s вместо ? и RETURNING где нужно)
-        # Для примера, add_time:
         elif action == 'add_time':
             new_time = request.form['new_time']
             if new_time not in current_time_slots:
@@ -280,7 +278,6 @@ def admin():
                 conn.commit()
                 flash('Новый временной слот добавлен.')
         
-        # Для edit:
         elif action == 'edit':
             day = request.form['day']
             ts = request.form['time_slot']
@@ -312,13 +309,55 @@ def admin():
                     except ValueError:
                         flash('Неверный формат: Фамилия Комната')
         
+        elif action == 'disable_machine':
+            machine = int(request.form['machine'])
+            c.execute('UPDATE machines SET status = %s WHERE number = %s', ('disabled', machine))
+            c.execute('UPDATE slots SET user_id = NULL WHERE machine_number = %s', (machine,))
+            conn.commit()
+            flash('Машина отключена.')
+        
+        elif action == 'enable_machine':
+            machine = int(request.form['machine'])
+            c.execute('UPDATE machines SET status = %s WHERE number = %s', ('active', machine))
+            conn.commit()
+            flash('Машина включена.')
+        
+        elif action == 'export_word':
+            doc = Document()
+            doc.add_heading('Расписание прачечной', 0)
+            for day in days:
+                doc.add_heading(day, level=1)
+                table = doc.add_table(rows=1, cols=num_machines + 1)
+                hdr_cells = table.rows[0].cells
+                hdr_cells[0].text = 'Время'
+                for i, (machine, _) in enumerate(machines):
+                    hdr_cells[i + 1].text = f'Машина {machine}'
+                
+                for ts in time_slots:
+                    row_cells = table.add_row().cells
+                    row_cells[0].text = ts
+                    for i, (machine, _) in enumerate(machines):
+                        idx = machine_map.get(machine)
+                        if idx is not None and day in schedule_data and ts in schedule_data[day]:
+                            value = schedule_data[day][ts][idx]
+                            row_cells[i + 1].text = value if value else ''
+            
+            output = BytesIO()
+            doc.save(output)
+            output.seek(0)
+            return send_file(output, download_name=f"schedule_{datetime.now().strftime('%Y%m%d')}.docx", as_attachment=True)
+        
         c.close()
         conn.close()
         return redirect(url_for('admin'))
     
     return render_template('admin.html', schedule_data=schedule_data, days=days, time_slots=time_slots, machines=[m for m, _ in machines])
 
-# ... (остальные маршруты как в вашем коде, с аналогичными заменами для psycopg2)
+@app.route('/export_word')
+def export_word():
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    return redirect(url_for('admin'))
 
 if __name__ == '__main__':
     app.run(debug=True)
